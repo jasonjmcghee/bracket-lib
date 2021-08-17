@@ -3,7 +3,7 @@
 use crate::{
     prelude::{
         init_raw, BEvent, CharacterTranslationMode, Console, FlexiConsole, Font, FontCharType,
-        GameState, InitHints, Radians, RenderSprite, Shader, SimpleConsole, SpriteConsole,
+        GameState, InitHints, MouseScrollDelta, Radians, RenderSprite, Shader, SimpleConsole, SpriteConsole,
         SpriteSheet, TextAlign, VirtualKeyCode, XpFile, XpLayer, BACKEND, INPUT,
     },
     BResult,
@@ -68,6 +68,7 @@ pub struct BTerm {
     pub frame_time_ms: f32,
     pub active_console: usize,
     pub key: Option<VirtualKeyCode>,
+    pub mouse_scroll: (f32, f32),
     pub mouse_pos: (i32, i32),
     pub left_click: bool,
     pub shift: bool,
@@ -351,6 +352,18 @@ impl BTerm {
         input.push_event(BEvent::MouseClick {
             button: button_num,
             pressed,
+        });
+    }
+
+    /// Internal: mark mouse scroll changed
+    pub(crate) fn on_mouse_wheel(&mut self, delta: MouseScrollDelta) {
+        self.mouse_scroll = match delta {
+            MouseScrollDelta::LineDelta(x, y) => { (x, y) }
+            MouseScrollDelta::PixelDelta(pos) => { (pos.x as f32, pos.y as f32) }
+        };
+        let mut input = INPUT.lock();
+        input.push_event(BEvent::MouseWheel {
+            delta
         });
     }
 

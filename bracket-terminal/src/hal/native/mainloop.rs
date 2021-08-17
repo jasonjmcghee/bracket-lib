@@ -5,7 +5,7 @@ use crate::prelude::{BEvent, BTerm, GameState, BACKEND_INTERNAL, INPUT};
 use crate::{clear_input_state, BResult};
 use bracket_geometry::prelude::Point;
 use glow::HasContext;
-use glutin::{event::Event, event::MouseButton, event::WindowEvent, event_loop::ControlFlow};
+use glutin::{event::Event, event::MouseButton, event::MouseScrollDelta, event::WindowEvent, event_loop::ControlFlow};
 use std::time::Instant;
 
 const TICK_TYPE: ControlFlow = ControlFlow::Poll;
@@ -176,6 +176,10 @@ pub fn main_loop<GS: GameState>(mut bterm: BTerm, mut gamestate: GS) -> BResult<
                         MouseButton::Other(num) => 3 + *num as usize,
                     };
                     bterm.on_mouse_button(button, *state == glutin::event::ElementState::Pressed);
+                }
+
+                WindowEvent::MouseWheel { delta, .. } => {
+                    bterm.on_mouse_wheel(*delta);
                 }
 
                 WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {

@@ -48,6 +48,9 @@ pub mod prelude {
     pub use glutin::event::VirtualKeyCode;
 
     #[cfg(all(feature = "opengl", not(target_arch = "wasm32")))]
+    pub use glutin::event::MouseScrollDelta;
+
+    #[cfg(all(feature = "opengl", not(target_arch = "wasm32")))]
     pub use crate::hal::GlCallback;
 
     #[cfg(all(
@@ -58,6 +61,9 @@ pub mod prelude {
 
     #[cfg(target_arch = "wasm32")]
     pub use crate::hal::VirtualKeyCode;
+
+    #[cfg(target_arch = "wasm32")]
+    pub use crate::hal::MouseScrollDelta;
 
     #[cfg(feature = "curses")]
     pub use crate::hal::VirtualKeyCode;

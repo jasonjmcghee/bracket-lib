@@ -3,6 +3,8 @@ use crate::prelude::INPUT;
 /// Global variable to store mouse position changes
 pub static mut GLOBAL_MOUSE_POS: (i32, i32) = (0, 0);
 
+pub static mut GLOBAL_SCROLL_DELTA: (f32, f32) = (0.0, 0.0);
+
 /// Event called via the web interface to indicate mouse movement
 pub fn on_mouse_move(mouse: web_sys::MouseEvent) {
     let off_x = mouse.offset_x();
@@ -35,5 +37,13 @@ pub fn on_mouse_up(_mouse: web_sys::MouseEvent) {
     INPUT.lock().on_mouse_button_up(0);
     unsafe {
         GLOBAL_LEFT_CLICK = false;
+    }
+}
+
+pub fn on_mouse_wheel(_wheel: web_sys::WheelEvent) {
+    let delta_x = _wheel.delta_x() as f32;
+    let delta_y = _wheel.delta_y() as f32;
+    unsafe {
+        GLOBAL_SCROLL_DELTA = (delta_x, delta_y);
     }
 }

@@ -37,6 +37,7 @@ pub fn init_raw<S: ToString>(
         frame_time_ms: 0.0,
         active_console: 0,
         key: None,
+        mouse_scroll: (0.0, 0.0),
         mouse_pos: (0, 0),
         left_click: false,
         shift: false,

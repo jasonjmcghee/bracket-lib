@@ -48,6 +48,7 @@ pub fn main_loop<GS: GameState>(mut bterm: BTerm, mut gamestate: GS) -> BResult<
         unsafe {
             bterm.key = GLOBAL_KEY;
             bterm.mouse_pos = (GLOBAL_MOUSE_POS.0, GLOBAL_MOUSE_POS.1);
+            bterm.mouse_scroll = (GLOBAL_SCROLL_DELTA.0, GLOBAL_SCROLL_DELTA.1);
             bterm.left_click = GLOBAL_LEFT_CLICK;
             bterm.shift = GLOBAL_MODIFIERS.0;
             bterm.control = GLOBAL_MODIFIERS.1;
@@ -73,6 +74,7 @@ pub fn main_loop<GS: GameState>(mut bterm: BTerm, mut gamestate: GS) -> BResult<
             GLOBAL_MODIFIERS = (false, false, false);
             GLOBAL_LEFT_CLICK = false;
             GLOBAL_BUTTON = None;
+            GLOBAL_SCROLL_DELTA = (0.0, 0.0);
         }
         request_animation_frame(f.borrow().as_ref().unwrap());
     }) as Box<dyn FnMut()>));

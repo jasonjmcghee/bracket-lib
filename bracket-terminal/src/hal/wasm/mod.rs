@@ -1,4 +1,4 @@
-pub use winit::event::VirtualKeyCode;
+pub use winit::event::{VirtualKeyCode, MouseScrollDelta};
 mod init;
 pub mod shader_strings;
 pub use init::*;

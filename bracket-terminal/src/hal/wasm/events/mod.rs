@@ -46,4 +46,12 @@ pub fn bind_wasm_events(canvas: &web_sys::HtmlCanvasElement) {
 
     canvas.set_onmouseup(Some(mouseunclick_callback.as_ref().unchecked_ref()));
     mouseunclick_callback.forget();
+
+    // Handle mouse wheel
+    let mousewheel_callback = Closure::wrap(Box::new(|e: web_sys::WheelEvent| {
+        on_mouse_wheel(e.clone());
+    }) as Box<dyn FnMut(_)>);
+
+    canvas.set_onwheel(Some(mousewheel_callback.as_ref().unchecked_ref()));
+    mousewheel_callback.forget();
 }

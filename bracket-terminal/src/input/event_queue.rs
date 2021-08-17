@@ -1,4 +1,4 @@
-pub use crate::prelude::VirtualKeyCode;
+pub use crate::prelude::{VirtualKeyCode, MouseScrollDelta};
 pub use bracket_geometry::prelude::Point;
 
 /// Available device events
@@ -33,6 +33,9 @@ pub enum BEvent {
 
     /// A mouse button was pressed or released
     MouseClick { button: usize, pressed: bool },
+
+    /// A mouse wheel was scrolled
+    MouseWheel { delta: MouseScrollDelta },
 
     /// Mouse button is down
     MouseButtonDown { button: usize },

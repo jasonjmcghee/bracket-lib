@@ -468,11 +468,8 @@ impl BTermBuilder {
         self
     }
 
-    /// Enable resize changing console size, rather than scaling. Native OpenGL only.
-    #[cfg(all(
-        any(feature = "opengl", feature = "webgpu"),
-        not(target_arch = "wasm32")
-    ))]
+    /// Enable resize changing console size, rather than scaling. OpenGL - native or WASM - only.
+    #[cfg(any(feature = "opengl", feature = "webgpu"))]
     pub fn with_automatic_console_resize(mut self, resize_scaling: bool) -> Self {
         self.platform_hints.resize_scaling = resize_scaling;
         self

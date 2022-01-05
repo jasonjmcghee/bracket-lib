@@ -5,20 +5,24 @@ pub fn init_raw<S: ToString>(
     width_pixels: u32,
     height_pixels: u32,
     _window_title: S,
-    _platform_hints: InitHints,
+    platform_hints: InitHints,
 ) -> BResult<BTerm> {
     use super::super::*;
     use super::*;
     use wasm_bindgen::JsCast;
+    use web_sys::console;
 
-    let canvas = web_sys::window()
-        .unwrap()
-        .document()
-        .unwrap()
-        .get_element_by_id("canvas")
-        .unwrap()
-        .dyn_into::<web_sys::HtmlCanvasElement>()
-        .unwrap();
+    let document = web_sys::window().unwrap().document().unwrap();
+    let div = document.query_selector("#canvas-wrapper").unwrap().unwrap();
+    let canvas = document.create_element("canvas").unwrap();
+    canvas.set_attribute("id", "canvas").unwrap();
+
+    console::log_2(&"Logging arbitrary values looks like".into(), &canvas.clone().into());
+
+    div.append_child(&canvas).unwrap();
+
+    let canvas = canvas.dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
+
     canvas.set_width(width_pixels);
     canvas.set_height(height_pixels);
 
@@ -71,12 +75,23 @@ pub fn init_raw<S: ToString>(
     ));
 
     let quad_vao = setup_quad(&gl);
-    let backing_fbo = Framebuffer::build_fbo(&gl, width_pixels as i32, height_pixels as i32);
+
+    let mut scaler = ScreenScaler::new(platform_hints.desired_gutter, width_pixels, height_pixels);
+    let initial_dpi_factor = web_sys::window().unwrap().device_pixel_ratio();
+    scaler.change_logical_size(width_pixels, height_pixels, initial_dpi_factor as f32);
+    let backing_fbo = Framebuffer::build_fbo(
+        &gl,
+        scaler.logical_size.0 as i32,
+        scaler.logical_size.1 as i32,
+    );
 
     let mut be = BACKEND.lock();
     be.gl = Some(gl);
     be.quad_vao = Some(quad_vao);
+    be.frame_sleep_time = crate::hal::convert_fps_to_wait(platform_hints.frame_sleep_time);
     be.backing_buffer = Some(backing_fbo);
+    be.screen_scaler = scaler;
+    be.resize_scaling = platform_hints.resize_scaling;
 
     BACKEND_INTERNAL.lock().shaders = shaders;
 

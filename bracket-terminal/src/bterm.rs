@@ -1008,10 +1008,7 @@ impl BTerm {
         }
     }
 
-    #[cfg(all(
-        any(feature = "opengl", feature = "webgpu"),
-        not(target_arch = "wasm32")
-    ))]
+    #[cfg(any(feature = "opengl", feature = "webgpu"))]
     /// Manually override the character size for the current terminal. Use with caution!
     pub fn set_char_size(&mut self, width: u32, height: u32) {
         BACKEND_INTERNAL.lock().consoles[self.active_console]
@@ -1019,10 +1016,7 @@ impl BTerm {
             .set_char_size(width, height);
     }
 
-    #[cfg(all(
-        any(feature = "opengl", feature = "webgpu"),
-        not(target_arch = "wasm32")
-    ))]
+    #[cfg(any(feature = "opengl", feature = "webgpu"))]
     /// Manually override the character size for the current terminal. Use with caution!
     pub fn set_char_size_and_resize_window(&mut self, _width: u32, _height: u32) {
         /*
@@ -1035,20 +1029,14 @@ impl BTerm {
         //panic!("This will be supported when `winit` stops crashing on resize request.");
     }
 
-    /// Take a screenshot - Native only
-    #[cfg(all(
-        any(feature = "opengl", feature = "webgpu"),
-        not(target_arch = "wasm32")
-    ))]
+    /// Take a screenshot (OpenGL - native or WASM - only)
+    #[cfg(any(feature = "opengl", feature = "webgpu"))]
     pub fn screenshot<S: ToString>(&mut self, filename: S) {
         BACKEND.lock().request_screenshot = Some(filename.to_string());
     }
 
-    /// Take a screenshot - Native only
-    #[cfg(not(all(
-        any(feature = "opengl", feature = "webgpu"),
-        not(target_arch = "wasm32")
-    )))]
+    /// Take a screenshot (OpenGL - native or WASM - only)
+    #[cfg(not(any(feature = "opengl", feature = "webgpu")))]
     pub fn screenshot<S: ToString>(&mut self, _filename: S) {
         // Do nothing
     }

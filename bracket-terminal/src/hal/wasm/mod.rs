@@ -9,7 +9,7 @@ use crate::hal::ConsoleBacking;
 pub use mainloop::*;
 use parking_lot::Mutex;
 use std::any::Any;
-use crate::hal::scaler::{ScreenScaler, default_gutter_size};
+use crate::hal::scaler::{ScreenScaler};
 
 pub type GlCallback = fn(&mut dyn Any, &glow::Context);
 
@@ -18,6 +18,7 @@ pub struct InitHints {
     pub fullscreen: bool,
     pub frame_sleep_time: Option<f32>,
     pub desired_gutter: u32,
+    pub resize_scaling: bool,
 }
 
 impl InitHints {
@@ -27,6 +28,7 @@ impl InitHints {
             fullscreen: false,
             frame_sleep_time: None,
             desired_gutter: 0,
+            resize_scaling: false,
         }
     }
 }
@@ -35,8 +37,12 @@ pub struct PlatformGL {
     pub gl: Option<glow::Context>,
     pub quad_vao: Option<glow::WebVertexArrayKey>,
     pub backing_buffer: Option<super::Framebuffer>,
+    pub frame_sleep_time: Option<u64>,
     pub gl_callback: Option<GlCallback>,
+    pub resize_scaling: bool,
+    pub resize_request: Option<(u32, u32)>,
     pub screen_scaler: ScreenScaler,
+    pub request_screenshot: Option<String>,
 }
 
 lazy_static! {
@@ -44,8 +50,12 @@ lazy_static! {
         gl: None,
         quad_vao: None,
         gl_callback: None,
+        frame_sleep_time: None,
+        resize_scaling: false,
+        resize_request: None,
         backing_buffer: None,
         screen_scaler: ScreenScaler::default(),
+        request_screenshot: None,
     });
 }
 

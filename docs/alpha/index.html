@@ -3,6 +3,8 @@
   <meta content="text/html;charset=utf-8" http-equiv="Content-Type" />
   <style>
     body {
+      display: flex;
+      justify-content: center;
       margin: 0;
       background-color: #000000;
       /* IE, only works on <img> tags */
@@ -13,11 +15,6 @@
       image-rendering: pixelated;
     }
 
-    #canvas-wrapper {
-      display: flex;
-      justify-content: center;
-    }
-
     canvas {
       position: absolute;
       top: 50%;
@@ -26,7 +23,7 @@
   </style>
 </head>
 <body>
-<div id="canvas-wrapper"></div>
+<canvas id="canvas"></canvas>
 <script src="./alpha.js"></script>
 <script>
   window.addEventListener("load", async () => {

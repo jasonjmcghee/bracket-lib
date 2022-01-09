@@ -13,13 +13,9 @@ pub fn init_raw<S: ToString>(
     use web_sys::console;
 
     let document = web_sys::window().unwrap().document().unwrap();
-    let div = document.query_selector("#canvas-wrapper").unwrap().unwrap();
-    let canvas = document.create_element("canvas").unwrap();
-    canvas.set_attribute("id", "canvas").unwrap();
+    let canvas = document.query_selector("canvas").unwrap().unwrap();
 
     console::log_2(&"Logging arbitrary values looks like".into(), &canvas.clone().into());
-
-    div.append_child(&canvas).unwrap();
 
     let canvas = canvas.dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
 

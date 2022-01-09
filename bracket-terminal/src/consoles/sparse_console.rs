@@ -5,6 +5,7 @@ use crate::prelude::{
 use bracket_color::prelude::RGBA;
 use bracket_geometry::prelude::Rect;
 use std::any::Any;
+use std::collections::{HashMap, HashSet};
 
 /// Internal storage structure for sparse tiles.
 #[derive(Clone, Copy, PartialEq)]
@@ -22,6 +23,7 @@ pub struct SparseConsole {
     pub height: u32,
 
     pub tiles: Vec<SparseTile>,
+    pub tile_lookup: HashMap<usize, usize>,
     pub is_dirty: bool,
 
     // To handle offset tiles for people who want thin walls between tiles
@@ -44,6 +46,7 @@ impl SparseConsole {
             width,
             height,
             tiles: Vec::with_capacity((width * height) as usize),
+            tile_lookup: HashMap::new(),
             is_dirty: true,
             offset_x: 0.0,
             offset_y: 0.0,
@@ -55,6 +58,21 @@ impl SparseConsole {
         };
 
         Box::new(new_console)
+    }
+
+    fn add(&mut self, sparse_tile: SparseTile) {
+        if self.tile_lookup.contains_key(&sparse_tile.idx) {
+            if let Some(tile_index) = self.tile_lookup.get_mut(&sparse_tile.idx) {
+                if let Some(tile) = self.tiles.get_mut::<usize>(*tile_index) {
+                    tile.glyph = sparse_tile.glyph;
+                    tile.fg = sparse_tile.fg;
+                    tile.bg = sparse_tile.bg;
+                }
+            }
+        } else {
+            self.tile_lookup.insert(sparse_tile.idx, self.tiles.len());
+            self.tiles.push(sparse_tile);
+        }
     }
 }
 
@@ -76,12 +94,14 @@ impl Console for SparseConsole {
     fn cls(&mut self) {
         self.is_dirty = true;
         self.tiles.clear();
+        self.tile_lookup.clear();
     }
 
     /// Clear the screen. Since we don't HAVE a background, it doesn't use it.
     fn cls_bg(&mut self, _background: RGBA) {
         self.is_dirty = true;
         self.tiles.clear();
+        self.tile_lookup.clear();
     }
 
     /// Prints a string to an x/y position.
@@ -96,22 +116,22 @@ impl Console for SparseConsole {
             }
         };
 
-        self.tiles.extend(
-            bytes
-                .into_iter()
-                .enumerate()
-                .filter(|(i, _)| (*i as i32 + x) < bounds.0 as i32)
-                .map(|(i, glyph)| {
-                    let idx =
-                        (((bounds.1 - 1 - y as u32) * bounds.0) + (x + i as i32) as u32) as usize;
+        bytes
+            .into_iter()
+            .enumerate()
+            .filter(|(i, _)| (*i as i32 + x) < bounds.0 as i32)
+            .for_each(|(i, glyph)| {
+                let idx =
+                    (((bounds.1 - 1 - y as u32) * bounds.0) + (x + i as i32) as u32) as usize;
+                self.add(
                     SparseTile {
                         idx,
                         glyph,
                         fg: RGBA::from_f32(1.0, 1.0, 1.0, 1.0),
                         bg: RGBA::from_f32(0.0, 0.0, 0.0, 1.0),
                     }
-                }),
-        );
+                );
+            });
     }
 
     /// Prints a string to an x/y position, with foreground and background colors.
@@ -125,24 +145,23 @@ impl Console for SparseConsole {
                 output.chars().map(|c| c as FontCharType).collect()
             }
         };
-        self.tiles.extend(
-            bytes
-                .into_iter()
-                .enumerate()
-                .filter(|(i, _)| (*i as i32 + x) < bounds.0 as i32)
-                .map(|(i, glyph)| {
-                    let idx =
-                        (((bounds.1 - 1 - y as u32) * bounds.0) + (x + i as i32) as u32) as usize;
-                    SparseTile { idx, glyph, fg, bg }
-                }),
-        );
+
+        bytes
+            .into_iter()
+            .enumerate()
+            .filter(|(i, _)| (*i as i32 + x) < bounds.0 as i32)
+            .for_each(|(i, glyph)| {
+                let idx =
+                    (((bounds.1 - 1 - y as u32) * bounds.0) + (x + i as i32) as u32) as usize;
+                self.add(SparseTile { idx, glyph, fg, bg })
+            });
     }
 
     /// Sets a single cell in the console
     fn set(&mut self, x: i32, y: i32, fg: RGBA, bg: RGBA, glyph: FontCharType) {
-        self.is_dirty = true;
         if let Some(idx) = self.try_at(x, y) {
-            self.tiles.push(SparseTile { idx, glyph, fg, bg });
+            self.is_dirty = true;
+            self.add(SparseTile { idx, glyph, fg, bg });
         }
     }
 
@@ -150,16 +169,8 @@ impl Console for SparseConsole {
     fn set_bg(&mut self, x: i32, y: i32, bg: RGBA) {
         if let Some(idx) = self.try_at(x, y) {
             self.is_dirty = true;
-            let mut found_tile = false;
-            self.tiles
-                .iter_mut()
-                .filter(|t| t.idx == idx)
-                .for_each(|t| {
-                    t.bg = bg;
-                    found_tile = true;
-                });
-            if !found_tile {
-                self.tiles.push(SparseTile {
+            self.add(
+                SparseTile {
                     idx,
                     glyph: match self.translation {
                         CharacterTranslationMode::Codepage437 => to_cp437(' '),
@@ -167,8 +178,8 @@ impl Console for SparseConsole {
                     },
                     fg: RGBA::from_u8(0, 0, 0, 255),
                     bg,
-                });
-            }
+                }
+            );
         }
     }
 

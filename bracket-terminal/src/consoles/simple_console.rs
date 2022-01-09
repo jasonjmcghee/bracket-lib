@@ -24,6 +24,8 @@ pub struct SimpleConsole {
     pub extra_clipping: Option<Rect>,
     pub translation: CharacterTranslationMode,
     pub(crate) needs_resize_internal: bool,
+
+    pub clear_glyph: FontCharType,
 }
 
 impl SimpleConsole {
@@ -52,6 +54,7 @@ impl SimpleConsole {
             extra_clipping: None,
             translation: CharacterTranslationMode::Codepage437,
             needs_resize_internal: false,
+            clear_glyph: 32,
         };
 
         Box::new(new_console)
@@ -76,7 +79,7 @@ impl Console for SimpleConsole {
     fn cls(&mut self) {
         self.is_dirty = true;
         for tile in &mut self.tiles {
-            tile.glyph = 32;
+            tile.glyph = self.clear_glyph;
             tile.fg = RGBA::from_u8(255, 255, 255, 255);
             tile.bg = RGBA::from_u8(0, 0, 0, 255);
         }
@@ -86,7 +89,7 @@ impl Console for SimpleConsole {
     fn cls_bg(&mut self, background: RGBA) {
         self.is_dirty = true;
         for tile in &mut self.tiles {
-            tile.glyph = 32;
+            tile.glyph = self.clear_glyph;
             tile.fg = RGBA::from_u8(255, 255, 255, 255);
             tile.bg = background;
         }
@@ -412,4 +415,12 @@ impl Console for SimpleConsole {
     fn clear_dirty(&mut self) {
         self.is_dirty = false;
     }
+
+    // Set character to use to clear screen, if applicable
+    fn set_clear_glyph(&mut self, clear_glyph: FontCharType) {
+        self.clear_glyph = clear_glyph;
+    }
+
+    // Get character to use to clear screen, if applicable
+    fn get_clear_glyph(&self) -> FontCharType { self.clear_glyph }
 }

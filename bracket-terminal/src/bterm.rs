@@ -1064,6 +1064,20 @@ impl BTerm {
             });
         }
     }
+
+    /// Set the glyph to use to clear the screen
+    pub fn set_clear_glyph(&mut self, clear_glyph: FontCharType) {
+        BACKEND_INTERNAL.lock().consoles[self.active_console]
+            .console
+            .set_clear_glyph(clear_glyph);
+    }
+
+    pub fn get_glyph(&self, x: u8, y: u8) -> u16 {
+        let be = BACKEND_INTERNAL.lock();
+        let font = &be.fonts[be.consoles[self.active_console].font_index];
+        let width = font.font_dimensions_glyphs.0 as u16;
+        y as u16 * width + x as u16
+    }
 }
 
 /// Runs the BTerm application, calling into the provided gamestate handler every tick.

@@ -200,6 +200,12 @@ pub trait Console {
 
     // Clears the dirty bit
     fn clear_dirty(&mut self);
+
+    // Set character to use to clear screen, if applicable
+    fn set_clear_glyph(&mut self, _clear_glyph: FontCharType) {}
+
+    // Get character to use to clear screen, if applicable
+    fn get_clear_glyph(&self) -> FontCharType { 32 }
 }
 
 pub fn log<S: ToString>(message: S) {

@@ -17,6 +17,7 @@ pub struct VirtualConsole {
 
     pub extra_clipping: Option<Rect>,
     pub translation: CharacterTranslationMode,
+    pub clear_glyph: FontCharType,
 }
 
 impl VirtualConsole {
@@ -29,6 +30,7 @@ impl VirtualConsole {
             tiles: Vec::with_capacity(num_tiles),
             extra_clipping: None,
             translation: CharacterTranslationMode::Codepage437,
+            clear_glyph: 32,
         };
         for _ in 0..num_tiles {
             console.tiles.push(Tile {
@@ -65,6 +67,7 @@ impl VirtualConsole {
             tiles: Vec::with_capacity(num_tiles),
             extra_clipping: None,
             translation: CharacterTranslationMode::Codepage437,
+            clear_glyph: 32,
         };
         //println!("{}x{}", console.width, console.height);
 
@@ -139,7 +142,7 @@ impl Console for VirtualConsole {
     /// Clears the screen.
     fn cls(&mut self) {
         for tile in &mut self.tiles {
-            tile.glyph = 32;
+            tile.glyph = self.clear_glyph;
             tile.fg = RGBA::from_f32(1.0, 1.0, 1.0, 1.0);
             tile.bg = RGBA::from_f32(0.0, 0.0, 0.0, 1.0);
         }
@@ -148,7 +151,7 @@ impl Console for VirtualConsole {
     /// Clears the screen with a background color.
     fn cls_bg(&mut self, background: RGBA) {
         for tile in &mut self.tiles {
-            tile.glyph = 32;
+            tile.glyph = self.clear_glyph;
             tile.fg = RGBA::from_f32(1.0, 1.0, 1.0, 1.0);
             tile.bg = background;
         }
@@ -435,4 +438,12 @@ impl Console for VirtualConsole {
 
     // Clears the dirty bit
     fn clear_dirty(&mut self) {}
+
+    // Set character to use to clear screen, if applicable
+    fn set_clear_glyph(&mut self, clear_glyph: FontCharType) {
+        self.clear_glyph = clear_glyph;
+    }
+
+    // Get character to use to clear screen, if applicable
+    fn get_clear_glyph(&self) -> FontCharType { self.clear_glyph }
 }

@@ -241,8 +241,13 @@ impl BTerm {
         pos
     }
 
+    #[cfg(any(feature = "curses", feature = "cross_term"))]
+    fn pixel_to_char_posf(&self, pos: (i32, i32), _console: &Box<dyn Console>) -> (f32, f32) {
+        (pos.0 as f32, pos.1 as f32)
+    }
+
     #[cfg(not(any(feature = "curses", feature = "cross_term")))]
-    fn pixel_to_char_pos(&self, pos: (i32, i32), console: &Box<dyn Console>) -> (i32, i32) {
+    fn pixel_to_char_posf(&self, pos: (i32, i32), console: &Box<dyn Console>) -> (f32, f32) {
         let max_sizes = console.get_char_size();
         let (scale, center_x, center_y) = console.get_scale();
 
@@ -273,7 +278,13 @@ impl BTerm {
         let mouse_x = f32::min(extent_x * max_sizes.0 as f32, max_sizes.0 as f32 - 1.0);
         let mouse_y = f32::min(extent_y * max_sizes.1 as f32, max_sizes.1 as f32 - 1.0);
 
-        (i32::max(0, mouse_x as i32), i32::max(0, mouse_y as i32))
+        (f32::max(0.0, mouse_x), f32::max(0.0, mouse_y))
+    }
+
+    #[cfg(not(any(feature = "curses", feature = "cross_term")))]
+    fn pixel_to_char_pos(&self, pos: (i32, i32), console: &Box<dyn Console>) -> (i32, i32) {
+        let (x, y) = self.pixel_to_char_posf(pos, console);
+        (x as i32, y as i32)
     }
 
     /// Applies the current physical mouse position to the active console, and translates the coordinates into that console's coordinate space.
@@ -292,6 +303,14 @@ impl BTerm {
         let char_pos = self.pixel_to_char_pos(self.mouse_pos, active_console);
 
         Point::new(char_pos.0, char_pos.1)
+    }
+
+    pub fn mouse_pointf(&self) -> PointF {
+        let bi = BACKEND_INTERNAL.lock();
+        let active_console = &bi.consoles[self.active_console].console;
+        let char_pos = self.pixel_to_char_posf(self.mouse_pos, active_console);
+
+        PointF::new(char_pos.0, char_pos.1)
     }
 
     /// Tells the game to quit
@@ -599,6 +618,34 @@ impl BTerm {
             .draw_box(
                 x.try_into().ok().expect("Must be i32 convertible"),
                 y.try_into().ok().expect("Must be i32 convertible"),
+                width.try_into().ok().expect("Must be i32 convertible"),
+                height.try_into().ok().expect("Must be i32 convertible"),
+                fg.into(),
+                bg.into(),
+            );
+    }
+
+    pub fn draw_box_fancy<COLOR, COLOR2, X, Y, W, H>(
+        &mut self,
+        x: X,
+        y: Y,
+        width: W,
+        height: H,
+        fg: COLOR,
+        bg: COLOR2,
+    ) where
+        COLOR: Into<RGBA>,
+        COLOR2: Into<RGBA>,
+        X: TryInto<f32>,
+        Y: TryInto<f32>,
+        W: TryInto<i32>,
+        H: TryInto<i32>,
+    {
+        BACKEND_INTERNAL.lock().consoles[self.active_console]
+            .console
+            .draw_box_fancy(
+                x.try_into().ok().expect("Must be f32 convertible"),
+                y.try_into().ok().expect("Must be f32 convertible"),
                 width.try_into().ok().expect("Must be i32 convertible"),
                 height.try_into().ok().expect("Must be i32 convertible"),
                 fg.into(),

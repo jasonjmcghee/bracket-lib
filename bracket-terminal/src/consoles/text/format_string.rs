@@ -41,6 +41,14 @@ impl ColoredTextSpans {
                     text_span.to_string(),
                 ));
                 result.length += text_span.chars().count();
+            } else {
+                result.spans.push((
+                    *color_stack
+                        .last()
+                        .unwrap_or(&RGBA::from_u8(255, 255, 255, 255)),
+                    color_span.to_string(),
+                ));
+                result.length += color_span.chars().count();
             }
         }
 

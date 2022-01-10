@@ -1,4 +1,5 @@
-use crate::prelude::{to_cp437, Console};
+use std::ops::Rem;
+use crate::prelude::{to_cp437, Console, FlexiConsole};
 use bracket_color::prelude::RGBA;
 
 /// Draws a box, starting at x/y with the extents width/height using CP437 line characters
@@ -34,6 +35,41 @@ pub fn draw_box(
     for y in sy + 1..sy + height {
         console.set(sx, y, fg, bg, to_cp437('│'));
         console.set(sx + width, y, fg, bg, to_cp437('│'));
+    }
+}
+
+pub fn draw_box_fancy(
+    console: &mut FlexiConsole,
+    sx: f32,
+    sy: f32,
+    width: i32,
+    height: i32,
+    fg: RGBA,
+    bg: RGBA,
+) {
+    for y in 0..height {
+        for x in 0..width {
+            console.set_fancy_simple(
+                x as f32 + sx,
+                y as f32 + sy,
+                fg,
+                bg,
+                console.get_clear_glyph(),
+            );
+        }
+    }
+
+    console.set_fancy_simple(sx, sy as f32, fg, bg, to_cp437('┌'));
+    console.set_fancy_simple(sx + width as f32, sy as f32, fg, bg, to_cp437('┐'));
+    console.set_fancy_simple(sx as f32, sy + height as f32, fg, bg, to_cp437('└'));
+    console.set_fancy_simple(sx + width as f32, sy + height as f32, fg, bg, to_cp437('┘'));
+    for x in 1..width {
+        console.set_fancy_simple(sx + x as f32, sy as f32, fg, bg, to_cp437('─'));
+        console.set_fancy_simple(sx + x as f32, sy + height as f32, fg, bg, to_cp437('─'));
+    }
+    for y in 1..height {
+        console.set_fancy_simple(sx as f32, sy + y as f32, fg, bg, to_cp437('│'));
+        console.set_fancy_simple(sx + width as f32, sy + y as f32, fg, bg, to_cp437('│'));
     }
 }
 

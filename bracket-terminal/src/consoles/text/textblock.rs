@@ -1,7 +1,10 @@
-use crate::prelude::{string_to_cp437, Console, DrawBatch, FontCharType, Tile};
+use crate::prelude::{string_to_cp437, Console, DrawBatch, FontCharType, Tile, ColoredTextSpans, to_cp437};
 use bracket_color::prelude::{ColorPair, RGB, RGBA};
-use bracket_geometry::prelude::{Point, Rect};
+use bracket_geometry::prelude::{Point, PointF, Radians, Rect, RectF};
 use std::cmp;
+use std::collections::HashMap;
+use std::convert::TryInto;
+use std::prelude::rust_2021::FromIterator;
 
 pub struct TextBlock {
     x: i32,
@@ -12,6 +15,7 @@ pub struct TextBlock {
     bg: RGBA,
     buffer: Vec<Tile>,
     cursor: (i32, i32),
+    padding: RectF,
 }
 
 #[derive(Debug, Clone)]
@@ -41,6 +45,7 @@ impl TextBlock {
                 width as usize * height as usize
             ],
             cursor: (0, 0),
+            padding: RectF::zero(),
         }
     }
 
@@ -64,6 +69,7 @@ impl TextBlock {
                 width as usize * height as usize
             ],
             cursor: (0, 0),
+            padding: RectF::zero(),
         }
     }
 
@@ -140,14 +146,67 @@ impl TextBlock {
         }
     }
 
+    pub fn render_to_draw_batch_fancy<ANGLE: Into<Radians>, Z: TryInto<i32>>(
+        &self,
+        draw_batch: &mut DrawBatch,
+        offset: PointF,
+        z_order: Z,
+        rotation: ANGLE,
+        scale: PointF,
+    ) {
+        let z_order = z_order.try_into().ok().expect("Must be i32 convertible");
+        let rotation = rotation.into();
+        for y in 0..self.height {
+            let row_padding = (y + 1) as f32 * self.padding.y1 + y as f32 * self.padding.y2;
+            for x in 0..self.width {
+                let col_padding = (x + 1) as f32 * self.padding.x1 + x as f32 * self.padding.x2;
+                draw_batch.set_fancy(
+                    PointF::new(
+                        col_padding + (x + self.x) as f32 + offset.x,
+                        row_padding + (y + self.y) as f32 + offset.y,
+                    ),
+                    (&z_order).clone(),
+                    (&rotation).clone(),
+                    scale,
+                    ColorPair::new(self.buffer[self.at(x, y)].fg, self.buffer[self.at(x, y)].bg),
+                    self.buffer[self.at(x, y)].glyph,
+                );
+            }
+        }
+    }
+
     pub fn print(&mut self, text: &TextBuilder) -> Result<(), OutOfSpace> {
         for cmd in &text.commands {
             match cmd {
-                CommandType::Text { block: t, wrap, center } => {
+                CommandType::Text { block: t, wrap, center_x, center_y, colored } => {
+                    let mut colors: HashMap<usize, RGBA> = HashMap::new();
+                    let mut char_index: usize = 0;
+
+                    let mut buf: Vec<char> = Vec::new();
+
+                    if *colored {
+                        let split_text = ColoredTextSpans::new(t);
+
+                        for span in split_text.spans.iter() {
+                            let fg = span.0;
+                            for c in span.1.chars() {
+                                if fg != self.fg {
+                                    colors.insert(char_index, fg);
+                                }
+                                char_index += 1;
+                                buf.push(c);
+                            }
+                        }
+                    }
+
+                    let parsed_text = String::from_iter(buf);
+
+                    let text = if parsed_text.len() > 0 { &parsed_text } else { t };
+
                     let words = if *wrap {
-                        t.split(' ').collect::<Vec<&str>>()
+                        text.split(' ').collect::<Vec<&str>>()
                     } else {
-                        vec![t.as_str()]
+                        vec![text.as_str()]
                     };
 
                     let all_words = words
@@ -174,11 +233,12 @@ impl TextBlock {
 
                         while word_index < word.len() {
                             let remaining = &word[word_index..];
+                            let remaining_len = remaining.len() + self.horizontal_padding(remaining.len());
+
 
                             // First check if it has room to push the current chars
                             if let Some(line) = lines.last_mut() {
-                                let line_len = line.len();
-                                let remaining_len = remaining.len();
+                                let line_len = self.len_with_padding(line);
                                 let next_len: usize = line_len + remaining_len;
 
                                 let overflow = next_len as i32 - (width as i32 - 1);
@@ -193,8 +253,7 @@ impl TextBlock {
                             }
 
                             if let Some(line) = lines.last_mut() {
-                                let line_len = line.len();
-                                let remaining_len = remaining.len();
+                                let line_len = self.len_with_padding(line);
                                 let next_len: usize = line_len + remaining_len;
                                 if next_len <= width - 1 {
                                     &line.extend(remaining);
@@ -204,18 +263,21 @@ impl TextBlock {
                         }
                     }
 
-                    // Trim lines
-                    for line in lines.iter_mut() {
-                        if line.ends_with(&string_to_cp437(" ")) {
-                            line.pop();
-                        }
-                    }
+                    self.cursor.1 = if *center_y {
+                        let total_height = self.height as usize + self.vertical_padding(self.height as usize);
+                        let text_height = lines.len() + self.vertical_padding(lines.len());
+                        (total_height as i32 / 2) - (text_height as i32 / 2)
+                    } else {
+                        0
+                    };
+
+                    let mut char_index = 0;
 
                     for (i, line) in lines.iter().enumerate() {
-                        self.cursor.0 = if *center {
-                            let text_width = line.len() as i32;
-                            let half_width = text_width / 2;
-                            (self.width / 2) - half_width
+                        self.cursor.0 = if *center_x {
+                            let total_width = self.width as usize + self.horizontal_padding(self.width as usize);
+                            let text_width = self.len_with_padding(line);
+                            (total_width as i32 / 2) - (text_width as i32 / 2)
                         } else {
                             0
                         };
@@ -223,12 +285,13 @@ impl TextBlock {
                             let idx = self.at(self.cursor.0, self.cursor.1 + i as i32);
                             if idx < self.buffer.len() {
                                 self.buffer[idx].glyph = *c;
-                                self.buffer[idx].fg = self.fg;
+                                self.buffer[idx].fg = *colors.get(&char_index).unwrap_or(&self.fg);
                                 self.buffer[idx].bg = self.bg;
                                 self.cursor.0 += 1;
                             } else {
                                 return Err(OutOfSpace);
                             }
+                            char_index += 1;
                         }
                     }
                 }
@@ -249,10 +312,30 @@ impl TextBlock {
         }
         Ok(())
     }
+
+    pub fn set_padding(&mut self, rect: RectF) {
+        self.padding = rect;
+    }
+
+    pub fn get_padding(&self) -> RectF {
+        self.padding
+    }
+
+    pub fn vertical_padding(&self, num_lines: usize) -> usize {
+        (num_lines as f32 * (self.padding.y1 + self.padding.y2)).ceil() as usize
+    }
+
+    pub fn horizontal_padding(&self, num_chars: usize) -> usize {
+        (num_chars as f32 * (self.padding.x1 + self.padding.x2)).ceil() as usize
+    }
+
+    pub fn len_with_padding<T>(&self, vec: &Vec<T>) -> usize {
+        vec.len() + self.horizontal_padding(vec.len())
+    }
 }
 
 pub enum CommandType {
-    Text { block: String, wrap: bool, center: bool },
+    Text { block: String, wrap: bool, center_x: bool, center_y: bool, colored: bool },
     NewLine {},
     Foreground { col: RGBA },
     Background { col: RGBA },
@@ -261,7 +344,9 @@ pub enum CommandType {
 
 pub struct TextBuilder {
     wrap: bool,
-    center: bool,
+    center_x: bool,
+    center_y: bool,
+    colored: bool,
     commands: Vec<CommandType>,
 }
 
@@ -269,7 +354,9 @@ impl TextBuilder {
     pub fn empty() -> TextBuilder {
         TextBuilder {
             wrap: false,
-            center: false,
+            center_x: false,
+            center_y: false,
+            colored: true,
             commands: Vec::new(),
         }
     }
@@ -279,29 +366,42 @@ impl TextBuilder {
         self
     }
 
-    pub fn center(&mut self, center: bool) -> &mut Self {
-        self.center = center;
+    pub fn center_x(&mut self, center_x: bool) -> &mut Self {
+        self.center_x = center_x;
+        self
+    }
+
+    pub fn center_y(&mut self, center_y: bool) -> &mut Self {
+        self.center_y = center_y;
         self
     }
 
     pub fn append(&mut self, text: &str) -> &mut Self {
         self.commands.push(CommandType::Text {
-            block: text.to_string(), wrap: self.wrap, center: self.center
+            block: text.to_string(),
+            wrap: self.wrap, center_x: self.center_x, center_y: self.center_y, colored: self.colored
         });
         self
     }
 
     pub fn centered(&mut self, text: &str) -> &mut Self {
-        let centered = self.center;
-        self.center(true);
+        let centered = self.center_x;
+        self.center_x(true);
         self.append(text);
-        self.center(centered);
+        self.center_x(centered);
+        self
+    }
+
+    pub fn colored_mode(&mut self, colored: bool) -> &mut Self {
+        self.colored = colored;
         self
     }
 
     pub fn reset(&mut self) -> &mut Self {
         self.wrap = false;
-        self.center = false;
+        self.center_x = false;
+        self.center_y = false;
+        self.colored = false;
         self.commands.push(CommandType::Reset {});
         self
     }

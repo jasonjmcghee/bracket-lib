@@ -5,7 +5,7 @@
 use crate::prelude::{BTerm, FontCharType, TextAlign};
 use crate::BResult;
 use bracket_color::prelude::{ColorPair, RGBA};
-use bracket_geometry::prelude::{Point, PointF, Radians, Rect};
+use bracket_geometry::prelude::{Point, PointF, Radians, Rect, RectF};
 use object_pool::{Pool, Reusable};
 use parking_lot::Mutex;
 use std::convert::TryInto;
@@ -93,6 +93,11 @@ pub enum DrawCommand {
     },
     Box {
         pos: Rect,
+        color: ColorPair,
+    },
+    BoxFancy {
+        pos: PointF,
+        size: Point,
         color: ColorPair,
     },
     HollowBox {
@@ -533,6 +538,12 @@ impl DrawBatch {
         self
     }
 
+    pub fn draw_box_fancy(&mut self, pos: PointF, size: Point, color: ColorPair) -> &mut Self {
+        let z = self.next_z();
+        self.batch.push((z, DrawCommand::BoxFancy { pos, size, color }));
+        self
+    }
+
     /// Draws a box, starting at x/y with the extents width/height using CP437 line characters. With render order.
     pub fn draw_box_with_z(&mut self, pos: Rect, color: ColorPair, z: u32) -> &mut Self {
         self.batch.push((z, DrawCommand::Box { pos, color }));
@@ -788,6 +799,14 @@ pub fn render_draw_buffer(bterm: &mut BTerm) -> BResult<()> {
                 pos.y1,
                 pos.width(),
                 pos.height(),
+                color.fg,
+                color.bg,
+            ),
+            DrawCommand::BoxFancy { pos, size, color } => bterm.draw_box_fancy(
+                pos.x,
+                pos.y,
+                size.x,
+                size.y,
                 color.fg,
                 color.bg,
             ),

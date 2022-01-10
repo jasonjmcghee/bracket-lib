@@ -6,6 +6,7 @@ use bracket_color::prelude::RGBA;
 use bracket_geometry::prelude::{PointF, Rect};
 use bracket_rex::prelude::XpColor;
 use std::any::Any;
+use std::ops::Rem;
 
 /// Internal storage structure for sparse tiles.
 pub struct FlexiTile {
@@ -58,6 +59,28 @@ impl FlexiConsole {
         };
 
         Box::new(new_console)
+    }
+
+    // Insert a single tile with "fancy" attributes
+    pub fn set_fancy_simple(
+        &mut self, x: f32, y: f32, fg: RGBA, bg: RGBA, glyph: FontCharType
+    ) {
+        self.is_dirty = true;
+        if self.try_at(x as i32, y as i32).is_some() {
+            let h = (self.height - 1) as f32;
+            self.tiles.push(FlexiTile {
+                position: PointF {
+                    x: x as f32,
+                    y: h - y as f32,
+                },
+                z_order: 0,
+                glyph,
+                fg,
+                bg,
+                rotation: 0.0,
+                scale: PointF { x: 1.0, y: 1.0 },
+            });
+        }
     }
 
     // Insert a single tile with "fancy" attributes
@@ -196,6 +219,12 @@ impl Console for FlexiConsole {
     /// Draws a box, starting at x/y with the extents width/height using CP437 line characters
     fn draw_box(&mut self, sx: i32, sy: i32, width: i32, height: i32, fg: RGBA, bg: RGBA) {
         crate::prelude::draw_box(self, sx, sy, width, height, fg, bg);
+    }
+
+    fn draw_box_fancy(&mut self, x: f32, y: f32, width: i32, height: i32, fg: RGBA, bg: RGBA) {
+        crate::prelude::draw_box_fancy(
+            self, x, y, width, height, fg, bg
+        );
     }
 
     /// Draws a box, starting at x/y with the extents width/height using CP437 double line characters

@@ -62,6 +62,11 @@ pub trait Console {
     /// Draws a box, starting at x/y with the extents width/height using CP437 line characters
     fn draw_box(&mut self, x: i32, y: i32, width: i32, height: i32, fg: RGBA, bg: RGBA);
 
+    /// Draws a box, starting at x/y with the extents width/height using CP437 line characters
+    fn draw_box_fancy(&mut self, x: f32, y: f32, width: i32, height: i32, fg: RGBA, bg: RGBA) {
+        self.draw_box(x as i32, y as i32, width as i32, height as i32, fg, bg)
+    }
+
     /// Draws a box, starting at x/y with the extents width/height using CP437 line characters,
     /// without filling in the middle
     fn draw_hollow_box(&mut self, x: i32, y: i32, width: i32, height: i32, fg: RGBA, bg: RGBA);

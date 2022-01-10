@@ -221,6 +221,14 @@ impl BTerm {
         }
     }
 
+    /// Allows execution of specific console functionality
+    pub fn with_console<F>(&mut self, id: usize, mut fn_mut: F) where F: FnMut(&mut BTerm) {
+        let current_console = self.active_console;
+        self.set_active_console(id);
+        fn_mut(self);
+        self.set_active_console(current_console);
+    }
+
     /// Applies the current physical mouse position to the active console, and translates the coordinates into that console's coordinate space.
     #[cfg(any(feature = "curses", feature = "cross_term"))]
     pub fn mouse_pos(&self) -> (i32, i32) {

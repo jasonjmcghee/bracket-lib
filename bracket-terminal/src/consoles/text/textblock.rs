@@ -44,6 +44,29 @@ impl TextBlock {
         }
     }
 
+    pub fn new_with_color<COLOR, COLOR2>(
+        x: i32, y: i32, width: i32, height: i32, fg: COLOR, bg: COLOR2
+    ) -> TextBlock where COLOR: Into<RGBA>, COLOR2: Into<RGBA> {
+        let color_pair = ColorPair { fg: fg.into(), bg: bg.into() };
+        TextBlock {
+            x,
+            y,
+            width,
+            height,
+            fg: color_pair.fg,
+            bg: color_pair.bg,
+            buffer: vec![
+                Tile {
+                    glyph: 0,
+                    fg: color_pair.fg,
+                    bg: color_pair.bg,
+                };
+                width as usize * height as usize
+            ],
+            cursor: (0, 0),
+        }
+    }
+
     pub fn fg<COLOR>(&mut self, fg: RGB)
     where
         COLOR: Into<RGBA>,
@@ -120,41 +143,92 @@ impl TextBlock {
     pub fn print(&mut self, text: &TextBuilder) -> Result<(), OutOfSpace> {
         for cmd in &text.commands {
             match cmd {
-                CommandType::Text { block: t } => {
-                    for c in t {
-                        let idx = self.at(self.cursor.0, self.cursor.1);
-                        if idx < self.buffer.len() {
-                            self.buffer[idx].glyph = *c;
-                            self.buffer[idx].fg = self.fg;
-                            self.buffer[idx].bg = self.bg;
-                            self.cursor.0 += 1;
-                            if self.cursor.0 >= self.width {
-                                self.cursor.0 = 0;
-                                self.cursor.1 += 1;
+                CommandType::Text { block: t, wrap, center } => {
+                    let words = if *wrap {
+                        t.split(' ').collect::<Vec<&str>>()
+                    } else {
+                        vec![t.as_str()]
+                    };
+
+                    let all_words = words
+                        .iter()
+                        .map(|word| string_to_cp437(&word))
+                        .collect::<Vec<Vec<FontCharType>>>();
+
+                    let mut lines: Vec<Vec<FontCharType>> = vec![];
+                    let width = self.width as usize;
+
+                    for word in all_words {
+                        if lines.len() == 0 {
+                            lines.push(vec![]);
+                        }
+
+                        let mut word_index = 0;
+
+                        if let Some(line) = lines.last_mut() {
+                            if line.len() > 0 {
+                                // TODO: "Clear character" instead of 32 (' ') here...
+                                line.extend(&string_to_cp437(" "))
                             }
-                        } else {
-                            return Err(OutOfSpace);
+                        }
+
+                        while word_index < word.len() {
+                            let remaining = &word[word_index..];
+
+                            // First check if it has room to push the current chars
+                            if let Some(line) = lines.last_mut() {
+                                let line_len = line.len();
+                                let remaining_len = remaining.len();
+                                let next_len: usize = line_len + remaining_len;
+
+                                let overflow = next_len as i32 - (width as i32 - 1);
+                                if overflow > 0 {
+                                    if !*wrap {
+                                        let end = word_index + (remaining_len as i32 - overflow) as usize;
+                                        &line.extend(&word[word_index..end]);
+                                        word_index = end;
+                                    }
+                                    lines.push(vec![]);
+                                }
+                            }
+
+                            if let Some(line) = lines.last_mut() {
+                                let line_len = line.len();
+                                let remaining_len = remaining.len();
+                                let next_len: usize = line_len + remaining_len;
+                                if next_len <= width - 1 {
+                                    &line.extend(remaining);
+                                    word_index = word.len();
+                                }
+                            }
                         }
                     }
-                }
 
-                CommandType::Centered { block: t } => {
-                    let text_width = t.len() as i32;
-                    let half_width = text_width / 2;
-                    self.cursor.0 = (self.width / 2) - half_width;
-                    for c in t {
-                        let idx = self.at(self.cursor.0, self.cursor.1);
-                        if idx < self.buffer.len() {
-                            self.buffer[idx].glyph = *c;
-                            self.buffer[idx].fg = self.fg;
-                            self.buffer[idx].bg = self.bg;
-                            self.cursor.0 += 1;
-                            if self.cursor.0 >= self.width {
-                                self.cursor.0 = 0;
-                                self.cursor.1 += 1;
-                            }
+                    // Trim lines
+                    for line in lines.iter_mut() {
+                        if line.ends_with(&string_to_cp437(" ")) {
+                            line.pop();
+                        }
+                    }
+
+                    for (i, line) in lines.iter().enumerate() {
+                        self.cursor.0 = if *center {
+                            let text_width = line.len() as i32;
+                            let half_width = text_width / 2;
+                            (self.width / 2) - half_width
                         } else {
-                            return Err(OutOfSpace);
+                            0
+                        };
+                        for c in line {
+                            let idx = self.at(self.cursor.0, self.cursor.1 + i as i32);
+                            if idx < self.buffer.len() {
+                                self.buffer[idx].glyph = *c;
+                                self.buffer[idx].fg = self.fg;
+                                self.buffer[idx].bg = self.bg;
+                                self.cursor.0 += 1;
+                            } else {
+                                return Err(OutOfSpace);
+                            }
                         }
                     }
                 }
@@ -171,32 +245,6 @@ impl TextBlock {
                     self.fg = RGBA::from_f32(1.0, 1.0, 1.0, 1.0);
                     self.bg = RGBA::from_f32(0.0, 0.0, 0.0, 1.0);
                 }
-
-                CommandType::TextWrapper { block: t } => {
-                    for word in t.split(' ') {
-                        let mut chrs = string_to_cp437(&word);
-                        chrs.push(32);
-                        if self.cursor.0 + chrs.len() as i32 >= self.width {
-                            self.cursor.0 = 0;
-                            self.cursor.1 += 1;
-                        }
-                        for c in chrs {
-                            let idx = self.at(self.cursor.0, self.cursor.1);
-                            if idx < self.buffer.len() {
-                                self.buffer[idx].glyph = c;
-                                self.buffer[idx].fg = self.fg;
-                                self.buffer[idx].bg = self.bg;
-                                self.cursor.0 += 1;
-                                if self.cursor.0 >= self.width {
-                                    self.cursor.0 = 0;
-                                    self.cursor.1 += 1;
-                                }
-                            } else {
-                                return Err(OutOfSpace);
-                            }
-                        }
-                    }
-                }
             }
         }
         Ok(())
@@ -204,37 +252,56 @@ impl TextBlock {
 }
 
 pub enum CommandType {
-    Text { block: Vec<FontCharType> },
-    Centered { block: Vec<FontCharType> },
+    Text { block: String, wrap: bool, center: bool },
     NewLine {},
     Foreground { col: RGBA },
     Background { col: RGBA },
-    TextWrapper { block: String },
     Reset {},
 }
 
 pub struct TextBuilder {
+    wrap: bool,
+    center: bool,
     commands: Vec<CommandType>,
 }
 
 impl TextBuilder {
     pub fn empty() -> TextBuilder {
         TextBuilder {
+            wrap: false,
+            center: false,
             commands: Vec::new(),
         }
     }
 
+    pub fn wrap(&mut self, wrap: bool) -> &mut Self {
+        self.wrap = wrap;
+        self
+    }
+
+    pub fn center(&mut self, center: bool) -> &mut Self {
+        self.center = center;
+        self
+    }
+
     pub fn append(&mut self, text: &str) -> &mut Self {
-        let chrs = string_to_cp437(&text);
-        self.commands.push(CommandType::Text { block: chrs });
+        self.commands.push(CommandType::Text {
+            block: text.to_string(), wrap: self.wrap, center: self.center
+        });
         self
     }
+
     pub fn centered(&mut self, text: &str) -> &mut Self {
-        let chrs = string_to_cp437(&text);
-        self.commands.push(CommandType::Centered { block: chrs });
+        let centered = self.center;
+        self.center(true);
+        self.append(text);
+        self.center(centered);
         self
     }
+
     pub fn reset(&mut self) -> &mut Self {
+        self.wrap = false;
+        self.center = false;
         self.commands.push(CommandType::Reset {});
         self
     }
@@ -259,9 +326,10 @@ impl TextBuilder {
         self
     }
     pub fn line_wrap(&mut self, text: &str) -> &mut Self {
-        self.commands.push(CommandType::TextWrapper {
-            block: text.to_string(),
-        });
+        let wrapped = self.wrap;
+        self.wrap(true);
+        self.append(text);
+        self.wrap(wrapped);
         self
     }
 }

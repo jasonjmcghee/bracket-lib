@@ -16,9 +16,9 @@ pub fn draw_box(
             console.set(
                 x,
                 y,
-                RGBA::from_f32(1.0, 1.0, 1.0, fg.a),
-                RGBA::from_f32(0.0, 0.0, 0.0, fg.a),
-                32,
+                fg,
+                bg,
+                console.get_clear_glyph(),
             );
         }
     }
